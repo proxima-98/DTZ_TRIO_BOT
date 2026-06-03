@@ -53,6 +53,30 @@
 
 ---
 
+## 🚀 Setup
+
+### Prerequisites
+- Node.js v18+
+- Telegram Bot Token → [@BotFather](https://t.me/BotFather)
+- Anthropic API Key → [console.anthropic.com](https://console.anthropic.com)
+
+### Install & Run
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env with your tokens
+
+# 3. Start the bot
+npm start
+
+# Development (auto-restart)
+npm run dev
+```
+
 ### Environment Variables (.env)
 ```
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
@@ -84,6 +108,31 @@ dtz-bot/
 | `/about` | About DTZ-Bot & DTZ TRIO |
 | `/clear` | Clear conversation memory |
 | `/search [query]` | Force a live web search |
+
+---
+
+## 🌐 Deployment
+
+### Option A — Render (Free)
+1. Push to GitHub
+2. New Web Service on [render.com](https://render.com)
+3. Add environment variables
+4. Deploy
+
+### Option B — Railway
+1. Push to GitHub
+2. New project on [railway.app](https://railway.app)
+3. Add environment variables
+4. Deploy
+
+### Option C — VPS (Ubuntu)
+```bash
+# Install PM2 for process management
+npm install -g pm2
+pm2 start bot.js --name dtz-bot
+pm2 save
+pm2 startup
+```
 
 ---
 
