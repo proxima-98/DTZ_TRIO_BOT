@@ -58,29 +58,44 @@
 ### Prerequisites
 - Node.js v18+
 - Telegram Bot Token → [@BotFather](https://t.me/BotFather)
-- Anthropic API Key → [console.anthropic.com](https://console.anthropic.com)
+- Gemini API Key → [aistudio.google.com](https://aistudio.google.com/app/apikey)
 
 ### Install & Run
 
 ```bash
-# 1. Install dependencies
+# 1. Clone the repository
+git clone https://github.com/proxima-98/DTZ_TRIO_BOT.git
+cd DTZ_TRIO_BOT
+
+# 2. Install dependencies
 npm install
 
-# 2. Configure environment
+# 3. Create your environment file
 cp .env.example .env
-# Edit .env with your tokens
+```
 
-# 3. Start the bot
+### Step 3: Add Your API Keys
+
+**Open `.env` in your editor and add your actual tokens:**
+
+```
+# .env
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+**How to get your keys:**
+- **TELEGRAM_BOT_TOKEN**: Message [@BotFather](https://t.me/BotFather) on Telegram and create a new bot
+- **GEMINI_API_KEY**: Go to [aistudio.google.com](https://aistudio.google.com/app/apikey), sign in, and click "Get API Key" (free forever)
+
+### Continue Setup
+
+```bash
+# 4. Start the bot
 npm start
 
-# Development (auto-restart)
+# Development (auto-restart with nodemon)
 npm run dev
-```
-
-### Environment Variables (.env)
-```
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
 ---
@@ -93,9 +108,12 @@ dtz-bot/
 ├── prompts.js      → AI system prompt + FUTMinna knowledge base
 ├── memory.js       → Per-user conversation history
 ├── package.json    → Dependencies
-├── .env.example    → Environment template
+├── .env.example    → Environment template (commit this)
+├── .env            → Your local keys (DO NOT commit - in .gitignore)
 └── README.md       → This file
 ```
+
+**⚠️ Important:** Never commit `.env` to Git! It's already in `.gitignore`.
 
 ---
 
@@ -116,13 +134,13 @@ dtz-bot/
 ### Option A — Render (Free)
 1. Push to GitHub
 2. New Web Service on [render.com](https://render.com)
-3. Add environment variables
+3. Add environment variables in Render dashboard
 4. Deploy
 
 ### Option B — Railway
 1. Push to GitHub
 2. New project on [railway.app](https://railway.app)
-3. Add environment variables
+3. Add environment variables in Railway dashboard
 4. Deploy
 
 ### Option C — VPS (Ubuntu)
