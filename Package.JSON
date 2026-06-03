@@ -1,14 +1,14 @@
 {
   "name": "dtz-bot-futminna",
   "version": "2.0.0",
-  "description": "DTZ-Bot — Internet-Powered AI Assistant for FUTMinna Students, Staff & the World",
+  "description": "DTZ-Bot — Google Gemini AI Assistant for FUTMinna & the World",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
     "dev": "nodemon bot.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.20.0",
+    "@google/generative-ai": "^0.21.0",
     "dotenv": "^16.4.5",
     "node-telegram-bot-api": "^0.66.0"
   },
@@ -18,7 +18,6 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["telegram", "bot", "futminna", "ai", "nigeria", "education"],
   "author": "DTZ TRIO",
   "license": "MIT"
 }
