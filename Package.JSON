@@ -1,0 +1,24 @@
+{
+  "name": "dtz-bot-futminna",
+  "version": "2.0.0",
+  "description": "DTZ-Bot — Internet-Powered AI Assistant for FUTMinna Students, Staff & the World",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "dev": "nodemon bot.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "dotenv": "^16.4.5",
+    "node-telegram-bot-api": "^0.66.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["telegram", "bot", "futminna", "ai", "nigeria", "education"],
+  "author": "DTZ TRIO",
+  "license": "MIT"
+}
