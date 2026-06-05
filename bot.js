@@ -2,23 +2,21 @@ require("dotenv").config();
 const TelegramBot = require("node-telegram-bot-api");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { getSystemPrompt } = require("./prompts");
-const { logConversation, getConversationHistory, clearHistory } = require("./memory");
+const { logConversation, getConversationHistory, clearHistory, setUserMeta } = require("./memory");
 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ─── Gemini model with search grounding (real-time internet) ──────────────────
+// ─── Gemini model instantiation ─────────────────────────────────────────────
 function getModel() {
   return genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",  // Free tier model
-    systemInstruction: getSystemPrompt(),
-    tools: [{ googleSearch: {} }], // Real-time Google Search grounding
+    model: "gemini-1.5-flash",  // Optimized for speed and free tier limits
   });
 }
 
 // ─── Safe send with Markdown fallback ────────────────────────────────────────
 async function safeSend(chatId, text, extra = {}) {
-  // Convert Gemini markdown to Telegram markdown
+  // Map standard Gemini Markdown to classic Telegram Markdown format safely
   let formatted = text
     .replace(/\*\*(.*?)\*\*/g, "*$1*")   // **bold** → *bold*
     .replace(/#{1,3} (.*)/g, "*$1*")      // ## Heading → *Heading*
@@ -30,8 +28,11 @@ async function safeSend(chatId, text, extra = {}) {
       disable_web_page_preview: true,
       ...extra,
     });
-  } catch {
-    return await bot.sendMessage(chatId, text.replace(/[*_`\[\]#]/g, ""), {
+  } catch (error) {
+    console.warn("Telegram parsing failed. Sending raw fallback message...");
+    // Strip syntax elements that break the parser
+    const cleanText = text.replace(/[*_`\[\]]/g, "");
+    return await bot.sendMessage(chatId, cleanText, {
       disable_web_page_preview: true,
       ...extra,
     });
@@ -52,10 +53,13 @@ function splitMessage(text, limit = 4000) {
   return parts;
 }
 
-// ─── /start ───────────────────────────────────────────────────────────────────
+// ─── Command Handlers ─────────────────────────────────────────────────────────
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const name = msg.from.first_name || "there";
+  
+  setUserMeta(chatId, { username: msg.from.username });
+
   safeSend(chatId, `
 🎓 *Welcome to DTZ-Bot!*
 _Your AI-Powered Assistant — FUTMinna & Beyond_
@@ -89,8 +93,8 @@ _Built by *DTZ TRIO* 👨‍💻_
 `);
 });
 
-// ─── /help ────────────────────────────────────────────────────────────────────
 bot.onText(/\/help/, (msg) => {
+  setUserMeta(msg.chat.id, {});
   safeSend(msg.chat.id, `
 📋 *DTZ-Bot Help*
 
@@ -118,8 +122,8 @@ Just type your question! Examples:
 `);
 });
 
-// ─── /about ───────────────────────────────────────────────────────────────────
 bot.onText(/\/about/, (msg) => {
+  setUserMeta(msg.chat.id, {});
   safeSend(msg.chat.id, `
 ℹ️ *About DTZ-Bot*
 
@@ -145,13 +149,13 @@ _Built with ❤️ by DTZ TRIO_
 `);
 });
 
-// ─── /clear ───────────────────────────────────────────────────────────────────
 bot.onText(/\/clear/, (msg) => {
   clearHistory(msg.chat.id);
+  setUserMeta(msg.chat.id, {});
   bot.sendMessage(msg.chat.id, "🗑️ Memory cleared! Fresh start. What would you like to know?");
 });
 
-// ─── Main message handler ─────────────────────────────────────────────────────
+// ─── Main Chat Processing Engine ─────────────────────────────────────────────
 bot.on("message", async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
@@ -159,19 +163,25 @@ bot.on("message", async (msg) => {
 
   const userName = msg.from.first_name || "User";
 
-  // Persistent typing indicator
-  bot.sendChatAction(chatId, "typing");
+  // Keeps background cleanup interval from reaping an active user session
+  setUserMeta(chatId, { username: msg.from.username });
+
+  // Handle typing indicator gracefully
+  bot.sendChatAction(chatId, "typing").catch(() => {});
   const typingInterval = setInterval(() => {
     bot.sendChatAction(chatId, "typing").catch(() => {});
   }, 4000);
 
   try {
-    const history = getConversationHistory(chatId);
+    // Clone history array to avoid mutating internal global objects mid-execution
+    const baseHistory = [...getConversationHistory(chatId)];
     const model = getModel();
 
-    // Build chat with history
+    // Start a chat conversation passing requirements into the correct SDK target blocks
     const chat = model.startChat({
-      history: history.map((m) => ({
+      systemInstruction: getSystemPrompt(),
+      tools: [{ googleSearch: {} }], // Grounding tool activation
+      history: baseHistory.map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
       })),
@@ -181,33 +191,33 @@ bot.on("message", async (msg) => {
       },
     });
 
-    // Add user identity context
+    // Provide structural context for internal personalization
     const messageWithContext = `[User: ${userName}]\n${text}`;
     const result = await chat.sendMessage(messageWithContext);
     const reply = result.response.text();
 
-    // Save to memory
-    history.push({ role: "user", content: text });
-    history.push({ role: "assistant", content: reply });
-    logConversation(chatId, history);
+    // Push changes locally first, then commit arrays securely back into data layers
+    baseHistory.push({ role: "user", content: text });
+    baseHistory.push({ role: "assistant", content: reply });
+    logConversation(chatId, baseHistory);
 
-    // Send reply (split if long)
+    // Fragment responses if they exceed text boundary constraints
     const parts = splitMessage(reply);
     for (const part of parts) {
       await safeSend(chatId, part);
     }
   } catch (err) {
-    console.error("Error:", err.message);
+    console.error("Execution Exception Encountered:", err);
     await bot.sendMessage(
       chatId,
-      `⚠️ Error: ${err.message}\n\nPlease try again or type /start to restart.`
+      `⚠️ Error processing request: ${err.message || "Unknown error occurred"}\n\nPlease try again or run /clear to refresh.`
     );
   } finally {
     clearInterval(typingInterval);
   }
 });
 
-// ─── Polling error ────────────────────────────────────────────────────────────
-bot.on("polling_error", (err) => console.error("Polling:", err.code));
+// ─── Global Error Events ──────────────────────────────────────────────────────
+bot.on("polling_error", (err) => console.error("Telegram Polling Error:", err.code));
 
-console.log("🤖 DTZ-Bot (Gemini + Google Search) is running...");
+console.log("🤖 DTZ-Bot (Gemini + Google Search Grounding) is running smoothly...");
