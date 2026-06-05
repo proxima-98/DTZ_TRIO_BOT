@@ -1,45 +1,78 @@
 /**
  * DTZ-Bot — Conversation Memory Manager
- * Stores per-user conversation history in memory.
- * For production scale, replace with Redis or MongoDB.
+ * Stores per-user conversation history and metadata in memory.
+ * Keeps memory clear by automatically purging inactive sessions.
  */
 
 const MAX_MESSAGES = 30; // ~15 exchanges kept per user
+const INACTIVITY_TIMEOUT = 3 * 60 * 60 * 1000; // 3 hours
 
-const store = new Map();
-const userMeta = new Map(); // track user info
+// Combined store to prevent desynced records and memory leaks
+// Structure: Map<chatId, { history: Array, meta: Object, lastSeen: number }>
+const sessions = new Map();
+
+function getOrCreateSession(chatId) {
+  const idStr = String(chatId);
+  if (!sessions.has(idStr)) {
+    sessions.set(idStr, {
+      history: [],
+      meta: {},
+      lastSeen: Date.now()
+    });
+  }
+  return sessions.get(idStr);
+}
 
 function getConversationHistory(chatId) {
-  return store.get(String(chatId)) || [];
+  return getOrCreateSession(chatId).history;
 }
 
 function logConversation(chatId, history) {
+  const session = getOrCreateSession(chatId);
+  
   // Keep last MAX_MESSAGES to stay within token limits
-  const trimmed = history.slice(-MAX_MESSAGES);
-  store.set(String(chatId), trimmed);
+  session.history = history.slice(-MAX_MESSAGES);
+  
+  // Automatically update lastSeen whenever a user interacts
+  session.lastSeen = Date.now();
 }
 
 function clearHistory(chatId) {
-  store.delete(String(chatId));
+  const session = sessions.get(String(chatId));
+  if (session) {
+    session.history = [];
+  }
 }
 
 function setUserMeta(chatId, meta) {
-  userMeta.set(String(chatId), meta);
+  const session = getOrCreateSession(chatId);
+  session.meta = { ...session.meta, ...meta }; // Merge metadata
+  session.lastSeen = Date.now(); // Heartbeat update
 }
 
 function getUserMeta(chatId) {
-  return userMeta.get(String(chatId)) || {};
+  return getOrCreateSession(chatId).meta;
 }
 
-// Clean up old conversations every hour (memory management)
+function deleteSession(chatId) {
+  sessions.delete(String(chatId));
+}
+
+// Clean up completely inactive sessions every hour
 setInterval(() => {
-  const cutoff = Date.now() - 3 * 60 * 60 * 1000; // 3 hours
-  for (const [key] of store) {
-    const meta = userMeta.get(key);
-    if (meta && meta.lastSeen && meta.lastSeen < cutoff) {
-      store.delete(key);
+  const cutoff = Date.now() - INACTIVITY_TIMEOUT;
+  for (const [key, session] of sessions) {
+    if (session.lastSeen < cutoff) {
+      sessions.delete(key); // Safely clears history AND metadata at once
     }
   }
 }, 60 * 60 * 1000);
 
-module.exports = { getConversationHistory, logConversation, clearHistory, setUserMeta, getUserMeta };
+module.exports = { 
+  getConversationHistory, 
+  logConversation, 
+  clearHistory, 
+  setUserMeta, 
+  getUserMeta,
+  deleteSession 
+};
