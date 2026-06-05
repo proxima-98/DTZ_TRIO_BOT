@@ -221,3 +221,13 @@ bot.on("message", async (msg) => {
 bot.on("polling_error", (err) => console.error("Telegram Polling Error:", err.code));
 
 console.log("🤖 DTZ-Bot (Gemini + Google Search Grounding) is running smoothly...");
+// Add this at the very bottom of index.js to satisfy Render's port requirement
+const http = require("http");
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("DTZ-Bot is alive!\n");
+}).listen(PORT, () => {
+  console.log(`Keep-alive server listening on port ${PORT}`);
+});
+
